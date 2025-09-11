@@ -63,17 +63,24 @@ class SideshiftAPI {
      */
     async _request(url, options = {}) {
         try {
+            if(this.verbose){
+                console.log('=== DEBUG REQUEST ===');
+                console.log('URL:', url);
+                console.log('Method:', options.method);
+                console.log('Headers:', options.headers);
+                console.log('Body (stringified):', typeof options.body === 'string' ? options.body : JSON.stringify(options.body));
+                console.log('=====================');
+            }
+
             const response = await fetch(url, options);
-            
+
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                throw new Error(`HTTP error! ${url} - status: ${response.status} ${response.statusText}`);
             }
             
             return await response.json();
         } catch (error) {
-            if(this.verbose) console.error('Fetch API Error:', error.message, { url });
-            throw new Error(`Fetch error! status: ${error.message}, ${url}`);
-
+            throw error;
         }
     }
 
@@ -86,16 +93,23 @@ class SideshiftAPI {
      */
     async _requestImage(url, options = {}) {
         try {
+            if(this.verbose){
+                console.log('\n=== DEBUG REQUEST ===');
+                console.log('URL:', url);
+                console.log('Method:', options.method);
+                console.log('Headers:', options.headers);
+                console.log('Body (stringified):', typeof options.body === 'string' ? options.body : JSON.stringify(options.body));
+                console.log('=====================\n');
+            }
             const response = await fetch(url, options);
             
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                throw new Error(`HTTP error! ${url} - status: ${response.status} ${response.statusText}`);
             }
             
             return await response.blob();
         } catch (error) {
-            if(this.verbose) console.error('Fetch Image API Error:', error.message, { url });
-            throw new Error(`Fetch error! status: ${error.message}, ${url}`);
+            throw error;
         }
     }
 
@@ -103,16 +117,16 @@ class SideshiftAPI {
     /** Input Validation */
     validateString(value, fieldName, source) {
         if (!value || typeof value !== 'string' || !value.trim()) {
-            const errorMsg = `Missing or invalid ${fieldName} parameter`;
-            if (this.verbose) console.error(`${source} Error:`, errorMsg);
+            const errorMsg = `Missing or invalid ${fieldName} parameter\n`;
+            if (this.verbose) console.error(`\n${source} Error:`, errorMsg);
             throw new Error(`${source} Error: ${errorMsg}`);
         }
         return value.trim();
     }
     validateOptinalString(value, fieldName, source) {
         if (value && typeof value !== 'string') {
-            const errorMsg = `Missing or invalid ${fieldName} parameter`;
-            if (this.verbose) console.error(`${source} Error:`, errorMsg);
+            const errorMsg = `Missing or invalid ${fieldName} parameter\n`;
+            if (this.verbose) console.error(`\n${source} Error:`, errorMsg);
             throw new Error(`${source} Error: ${errorMsg}`);
         }
         if(value === null || value === undefined){
@@ -123,8 +137,8 @@ class SideshiftAPI {
     }
     validateNumber(value, fieldName, source) {
         if (value !== null && (typeof value !== 'number' || value < 0)) {
-            const errorMsg = `Missing or invalid ${fieldName} parameter`;
-            if (this.verbose) console.error(`${source} Error:`, errorMsg);
+            const errorMsg = `Missing or invalid ${fieldName} parameter\n`;
+            if (this.verbose) console.error(`\n${source} Error:`, errorMsg);
             throw new Error(`${source} Error: ${errorMsg}`);
         }
         return value;
@@ -385,9 +399,14 @@ class SideshiftAPI {
      */
     async cancelOrder(orderID) {
         this.validateString(orderID, "orderID", "cancelOrder");
-        return this._request(`${this.BASE_URL}/cancel-order/`, {
+        
+        const bodyObj = { 
+            "orderId": orderID 
+        };
+
+        return this._request(`${this.BASE_URL}/cancel-order`, {
             headers: this.HEADER_WITH_TOKEN,
-            body: JSON.stringify({ "orderId": orderID }),
+            body: JSON.stringify(bodyObj),
             method: "POST"
         });
     }
