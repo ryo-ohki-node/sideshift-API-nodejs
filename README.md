@@ -1,19 +1,38 @@
 # sideshift-API-nodejs
 Sideshift API module for nodejs
 
+# Use Cases
+This module provide an user-friendly interface to the official SideShift API. It can help integrate cryptocurrency swap into various applications, such as:
+
+- Cryptocurrency Wallets: Enhance your wallet app by allowing users to swap coins directly within the interface.
+
+- Decentralized Exchanges: Create decentralized exchange platforms with real-time coin swapping capabilities.
+
+- Payment Gateways: Offer customers the flexibility to pay in their preferred cryptocurrency and automatically convert it to your desired coin for processing.
+
+
+# Key features
+- Easy Integration: With just a few lines of code to integrate cryptocurrency swapping capabilities into your Node.js applications.
+
+- Wide Coin Support: Access the full spectrum of 235+ coins supported by SideShift, allowing users to swap seamlessly between various cryptocurrencies.
+
+
+
 #  Load module
 const SideshiftAPI = require('./sideshift_module.js');
 const SIDESHIFT_ID = "Your_shideshift_ID";
 const SIDESHIFT_SECRET = "Your_shideshift_secret";
 const sideshift = new SideshiftAPI(SIDESHIFT_SECRET, SIDESHIFT_ID);
 
+
 # Verbose mode
 const sideshift = new SideshiftAPI(SIDESHIFT_SECRET, SIDESHIFT_ID, true);
 
 
+
 # GET function
 getCoin(): Returns the list of coins and their respective networks available on SideShift.ai.
-return: {
+return: [ {
     "networks": [
       "avax"
     ],
@@ -31,7 +50,7 @@ return: {
     "networksWithMemo": [],
     "depositOffline": false,
     "settleOffline": false
-  }, ...
+  }, ... ]
   
   
 getCoinIcon(): Returns the icon of the coin in svg or png format.
