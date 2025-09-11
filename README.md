@@ -20,8 +20,11 @@ This module provide an user-friendly interface to the official SideShift API. It
 
 #  Load module
 const SideshiftAPI = require('./sideshift_module.js');
+
 const SIDESHIFT_ID = "Your_shideshift_ID";
+
 const SIDESHIFT_SECRET = "Your_shideshift_secret";
+
 const sideshift = new SideshiftAPI(SIDESHIFT_SECRET, SIDESHIFT_ID);
 
 
@@ -32,6 +35,7 @@ const sideshift = new SideshiftAPI(SIDESHIFT_SECRET, SIDESHIFT_ID, true);
 
 # GET function
 getCoin(): Returns the list of coins and their respective networks available on SideShift.ai.
+
 return: [ {
     "networks": [
       "avax"
@@ -54,16 +58,19 @@ return: [ {
   
   
 getCoinIcon(): Returns the icon of the coin in svg or png format.
+
 return an image blob.
 
 
 getPermissions(): Returns whether or not the user is allowed to create shifts on SideShift.ai. 
+
 return: {
   "createShift": true
 }
 
 
  getPair("coin-network", "coin_2-network_2"): Returns the minimum and maximum deposit amount and the rate for a pair of coins.
+
 return: {
   "min": "0.0.00010771",
   "max": "1.43608988",
@@ -76,6 +83,7 @@ return: {
 
 
 getPairs(arrayOfCoins): same as getPair but with multiple coins. Returns the minimum and maximum deposit amount and the rate for every possible pair of coins listed in the query string.
+
 return: [
   {
     depositCoin: 'BTC',
@@ -116,6 +124,7 @@ See https://docs.sideshift.ai/endpoints/v2/bulkshifts for output example
 
 
 getRecentShifts(limit): Returns the 10 most recent completed shifts. Use limit param to change the number of recent shifts returned. limit must be between 1-100.
+
 return: [
   {
     "createdAt": "2023-10-17T06:48:18.622Z",
@@ -130,6 +139,7 @@ return: [
 
 
 getXaiStats: Returns the statistics about XAI coin, including it's current USD price.
+
 return: {
   "totalSupply": 210000000,
   "circulatingSupply": 126684969.93,
@@ -147,6 +157,7 @@ return: {
 
 
 getAccount: Returns the data related to an account. In order to get the data, send the account secret in the x-sideshift-secret header.
+
 return: {
   "id": "YQMi62XMb",
   "lifetimeStakingRewards": "89190.63",
@@ -158,6 +169,7 @@ return: {
 
 
 getCheckout : Returns the data of a checkout created using /v2/checkout endpoint.
+
 return: {
   "id": "32e676d3-56c2-4c06-a0cd-551a9d3db18b",
   "settleCoin": "XRP",
@@ -177,6 +189,7 @@ return: {
 # POST function
 createFixedShift(settleAddress, quoteId, settleMemo, refundAddress, refundMemo)
 ⚠️ Important: When using refundMemo, both settleMemo and refundAddress must be set to null to maintain correct parameter positioning.
+
 return: {
   "id": "8c9ba87d02a801a2f254",
   "createdAt": "2023-10-17T04:32:00.855Z",
@@ -203,6 +216,7 @@ return: {
 
 createVariableShift(settleAddress, settleCoin, settleNetwork, depositCoin, depositNetwork, refundAddress, settleMemo, refundMemo)
 ⚠️ Important: When using refundMemo, the parameter order must be maintained as shown above.
+
 return: {
   "id": "71449070046fcfee010z",
   "createdAt": "2024-01-31T01:04:14.978Z",
