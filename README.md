@@ -34,7 +34,7 @@ const sideshift = new SideshiftAPI(SIDESHIFT_SECRET, SIDESHIFT_ID, true);
 
 
 # GET function
-getCoin(): Returns the list of coins and their respective networks available on SideShift.ai.
+- getCoin(): Returns the list of coins and their respective networks available on SideShift.ai.
 
 return: [ {
     "networks": [
@@ -57,19 +57,19 @@ return: [ {
   }, ... ]
   
   
-getCoinIcon(): Returns the icon of the coin in svg or png format.
+- getCoinIcon(): Returns the icon of the coin in svg or png format.
 
 return an image blob.
 
 
-getPermissions(): Returns whether or not the user is allowed to create shifts on SideShift.ai. 
+- getPermissions(): Returns whether or not the user is allowed to create shifts on SideShift.ai. 
 
 return: {
   "createShift": true
 }
 
 
- getPair("coin-network", "coin_2-network_2"): Returns the minimum and maximum deposit amount and the rate for a pair of coins.
+- getPair("coin-network", "coin_2-network_2"): Returns the minimum and maximum deposit amount and the rate for a pair of coins.
 
 return: {
   "min": "0.0.00010771",
@@ -82,7 +82,7 @@ return: {
 }
 
 
-getPairs(arrayOfCoins): same as getPair but with multiple coins. Returns the minimum and maximum deposit amount and the rate for every possible pair of coins listed in the query string.
+- getPairs(arrayOfCoins): same as getPair but with multiple coins. Returns the minimum and maximum deposit amount and the rate for every possible pair of coins listed in the query string.
 
 return: [
   {
@@ -115,15 +115,15 @@ return: [
 ]
 
 
-getShift(ID): Returns the shift data.
+- getShift(ID): Returns the shift data.
 See https://docs.sideshift.ai/endpoints/v2/shift for output example
 
 
-getBulkShifts(arrayOfIDs): same as getShift but with multiple shifts ID
+- getBulkShifts(arrayOfIDs): same as getShift but with multiple shifts ID
 See https://docs.sideshift.ai/endpoints/v2/bulkshifts for output example
 
 
-getRecentShifts(limit): Returns the 10 most recent completed shifts. Use limit param to change the number of recent shifts returned. limit must be between 1-100.
+- getRecentShifts(limit): Returns the 10 most recent completed shifts. Use limit param to change the number of recent shifts returned. limit must be between 1-100.
 
 return: [
   {
@@ -138,7 +138,7 @@ return: [
 ]
 
 
-getXaiStats: Returns the statistics about XAI coin, including it's current USD price.
+- getXaiStats: Returns the statistics about XAI coin, including it's current USD price.
 
 return: {
   "totalSupply": 210000000,
@@ -156,7 +156,7 @@ return: {
 }
 
 
-getAccount: Returns the data related to an account. In order to get the data, send the account secret in the x-sideshift-secret header.
+- getAccount: Returns the data related to an account. In order to get the data, send the account secret in the x-sideshift-secret header.
 
 return: {
   "id": "YQMi62XMb",
@@ -168,7 +168,7 @@ return: {
 }
 
 
-getCheckout : Returns the data of a checkout created using /v2/checkout endpoint.
+- getCheckout : Returns the data of a checkout created using /v2/checkout endpoint.
 
 return: {
   "id": "32e676d3-56c2-4c06-a0cd-551a9d3db18b",
@@ -187,7 +187,7 @@ return: {
 
 
 # POST function
-createFixedShift(settleAddress, quoteId, settleMemo, refundAddress, refundMemo)
+- createFixedShift(settleAddress, quoteId, settleMemo, refundAddress, refundMemo)
 ⚠️ Important: When using refundMemo, both settleMemo and refundAddress must be set to null to maintain correct parameter positioning.
 
 return: {
@@ -214,7 +214,7 @@ return: {
 }
 
 
-createVariableShift(settleAddress, settleCoin, settleNetwork, depositCoin, depositNetwork, refundAddress, settleMemo, refundMemo)
+- createVariableShift(settleAddress, settleCoin, settleNetwork, depositCoin, depositNetwork, refundAddress, settleMemo, refundMemo)
 ⚠️ Important: When using refundMemo, the parameter order must be maintained as shown above.
 
 return: {
