@@ -17,6 +17,17 @@ This module provide an user-friendly interface to the official SideShift API. It
 - Wide Coin Support: Access the full spectrum of 235+ coins supported by SideShift, allowing users to swap seamlessly between various cryptocurrencies.
 
 
+# Installation
+This module provides two versions: one using Fetch and another using Axios.
+
+Demo Server Dependencies:
+npm install --save express http fs body-parser 
+
+Module Dependencies (depending of the version):
+npm install --save node-fetch
+or
+npm install --save axios
+
 
 #  Load module
 const SideshiftAPI = require('./sideshift_module.js');
