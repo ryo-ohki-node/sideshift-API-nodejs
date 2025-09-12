@@ -55,6 +55,46 @@ class SideshiftAPI {
 
 
     /**
+     * Handle the API request
+     * @private
+     * @param {Object} response - Fetch response object
+     * @param {string} url - The API endpoint URL
+     * @param {Object} options - Fetch options
+     * @returns {Promise<Object>} Resolves with the response object if successful
+     * @throws {Error} Throws an error with HTTP status details and error data when response is not ok
+     */
+    async _handleResponse(response, url, options) {
+        if(this.verbose){
+            console.log('\n=== DEBUG REQUEST ===');
+            console.log('URL:', url);
+            console.log('Method:', options.method);
+            console.log('Headers:', options.headers);
+            console.log('Body (stringified):', typeof options.body === 'string' ? options.body : JSON.stringify(options.body));
+            console.log('=====================');
+        }
+        if (!response.ok) {
+            let errorData = {};
+            
+            try {
+                errorData = await response.json();
+            } catch (jsonError) {
+                errorData = await response.text();
+            }
+            
+            const error = new Error(`HTTP ${response.status} ${response.statusText}`);
+            error.status = response.status;
+            error.statusText = response.statusText;
+            error.url = url;
+            error.options = options;
+            error.error = errorData.error || { message: 'Unknown error' };
+            
+            throw error;
+        }
+        
+        return response;
+    }
+
+    /**
      * Make an API request
      * @private
      * @param {string} url - The API endpoint URL
@@ -62,26 +102,11 @@ class SideshiftAPI {
      * @returns {Promise<Object>} Response data or error object
      */
     async _request(url, options = {}) {
-        try {
-            if(this.verbose){
-                console.log('=== DEBUG REQUEST ===');
-                console.log('URL:', url);
-                console.log('Method:', options.method);
-                console.log('Headers:', options.headers);
-                console.log('Body (stringified):', typeof options.body === 'string' ? options.body : JSON.stringify(options.body));
-                console.log('=====================');
-            }
-
-            const response = await fetch(url, options);
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! ${url} - status: ${response.status} ${response.statusText}`);
-            }
-            
-            return await response.json();
-        } catch (error) {
-            throw error;
-        }
+       
+        const response = await fetch(url, options);
+        const handledResponse = await this._handleResponse(response, url, options);
+        
+        return await handledResponse.json();
     }
 
     /**
@@ -90,44 +115,34 @@ class SideshiftAPI {
      * @param {string} url - The API endpoint URL
      * @param {Object} options - Fetch options
      * @returns {Promise<Blob|Object>} Image blob or error object
-     */
+     */    
     async _requestImage(url, options = {}) {
-        try {
-            if(this.verbose){
-                console.log('\n=== DEBUG REQUEST ===');
-                console.log('URL:', url);
-                console.log('Method:', options.method);
-                console.log('Headers:', options.headers);
-                console.log('Body (stringified):', typeof options.body === 'string' ? options.body : JSON.stringify(options.body));
-                console.log('=====================\n');
-            }
-            const response = await fetch(url, options);
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! ${url} - status: ${response.status} ${response.statusText}`);
-            }
-            
-            return await response.blob();
-        } catch (error) {
-            throw error;
-        }
+        
+        const response = await fetch(url, options);
+        const handledResponse = await this._handleResponse(response, url, options);
+        
+        return await handledResponse.blob();
     }
 
+
+    /** Error message for Input Validation */
+    errorMsg(fieldName, source) {
+        const error = `Error from ${source}: Missing or invalid ${fieldName} parameter`;
+        return error;
+    }
 
     /** Input Validation */
     validateString(value, fieldName, source) {
         if (!value || typeof value !== 'string' || !value.trim()) {
-            const errorMsg = `Missing or invalid ${fieldName} parameter\n`;
-            if (this.verbose) console.error(`\n${source} Error:`, errorMsg);
-            throw new Error(`${source} Error: ${errorMsg}`);
+            const error = this.errorMsg(fieldName, source);
+            throw new Error(`${error}`);
         }
         return value.trim();
     }
     validateOptinalString(value, fieldName, source) {
         if (value && typeof value !== 'string') {
-            const errorMsg = `Missing or invalid ${fieldName} parameter\n`;
-            if (this.verbose) console.error(`\n${source} Error:`, errorMsg);
-            throw new Error(`${source} Error: ${errorMsg}`);
+            const error = this.errorMsg(fieldName, source);
+            throw new Error(`${error}`);
         }
         if(value === null || value === undefined){
             return value;
@@ -137,13 +152,11 @@ class SideshiftAPI {
     }
     validateNumber(value, fieldName, source) {
         if (value !== null && (typeof value !== 'number' || value < 0)) {
-            const errorMsg = `Missing or invalid ${fieldName} parameter\n`;
-            if (this.verbose) console.error(`\n${source} Error:`, errorMsg);
-            throw new Error(`${source} Error: ${errorMsg}`);
+            const error = this.errorMsg(fieldName, source);
+            throw new Error(`${error}`);
         }
         return value;
     }
-
 
 
     /** API functions - GET */
@@ -254,7 +267,6 @@ class SideshiftAPI {
     async getCheckout(checkoutId) {
         return this._request(`${this.BASE_URL}/checkout/${checkoutId}`, this.requestHeaderWithToken);
     }
-
 
 
 
@@ -449,7 +461,6 @@ class SideshiftAPI {
         });
     }
 }
-
 
 
 module.exports = SideshiftAPI;
