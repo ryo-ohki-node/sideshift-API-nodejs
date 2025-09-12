@@ -31,6 +31,24 @@ const sideshift = new SideshiftAPI(SIDESHIFT_SECRET, SIDESHIFT_ID);
 # Verbose mode
 const sideshift = new SideshiftAPI(SIDESHIFT_SECRET, SIDESHIFT_ID, true);
 
+When verbose mode is enabled, all requests are logged with:
+- URL and HTTP method
+- Request headers
+- Request body (stringified)
+- Full request/response details for troubleshooting
+
+
+# Error Handling
+When encountering errors, the module returns an error object with the following format:
+
+{
+  "status": 400,
+  "statusText": "Bad Request",
+  "url": "https://sideshift.ai/api/v2/cancel-order",
+  "error": {
+    "message": "Order already expired"
+  }
+}
 
 
 # GET function
