@@ -21,14 +21,17 @@ This module provide an user-friendly interface to the official SideShift API. It
 This module use Fetch.
 
 Demo Server Dependencies:
-```npm install --save express http fs body-parser
+```
+npm install --save express http fs body-parser
 ```
 Module Dependencies:
-```npm install --save node-fetch
+```
+npm install --save node-fetch
 ```
 
 ##  Load module
-```const SideshiftAPI = require('./sideshift_module.js');
+```
+const SideshiftAPI = require('./sideshift_module.js');
 or import { SideshiftAPI } from './sideshift_module.js';
 
 const SIDESHIFT_ID = "Your_shideshift_ID";
@@ -47,7 +50,8 @@ const sideshift = new SideshiftAPI({
 
 
 ## Verbose mode
-```const sideshift = new SideshiftAPI(SIDESHIFT_SECRET, SIDESHIFT_ID, COMMISSION_RATE, true);
+```
+const sideshift = new SideshiftAPI(SIDESHIFT_SECRET, SIDESHIFT_ID, COMMISSION_RATE, true);
 ```
 
 When verbose mode is enabled, all requests are logged with:
@@ -58,7 +62,8 @@ When verbose mode is enabled, all requests are logged with:
 
 
 **Log example**
-```=== DEBUG REQUEST ===
+```
+=== DEBUG REQUEST ===
 URL: https://sideshift.ai/api/v2/cancel-order
 Method: POST
 Headers: {
@@ -73,7 +78,8 @@ Body: {"orderId":"4f72a1852d8b2c10537b"}
 ## Error Handling
 When encountering errors, the module returns an error object with the following format:
 
-```{
+```
+{
   "status": 400,
   "statusText": "Bad Request",
   "url": "https://sideshift.ai/api/v2/cancel-order",
