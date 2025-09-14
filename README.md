@@ -22,7 +22,7 @@ This module use Fetch.
 
 Demo Server Dependencies:
 ```
-npm install --save express http fs body-parser
+npm install --save express http fs
 ```
 Module Dependencies:
 ```
