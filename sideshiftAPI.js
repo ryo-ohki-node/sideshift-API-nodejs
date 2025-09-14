@@ -7,9 +7,10 @@ class SideshiftAPI {
      * Create a Sideshift API client
      * @param {string} secret - Your Sideshift secret key
      * @param {string} id - Your Sideshift ID
+     * @param {string} commisssionRate - Your commission rate from 0 to 2.
      * @param {string} verbose - If true, activate console.error output.
      */
-    constructor(secret, id, verbose = false) {
+    constructor({secret, id, commisssionRate = "0.5", verbose = false}) {
         /** Auth Configuration */
         if (!secret || typeof secret !== 'string' || !secret.trim()) {
             throw new Error(`SIDESHIFT_SECRET must be a non-empty string. Provided: ${secret}`);
@@ -20,6 +21,7 @@ class SideshiftAPI {
 
         this.SIDESHIFT_SECRET = secret;
         this.SIDESHIFT_ID = id;
+        this.COMMISSION_RATE = String(commisssionRate); 
 
         /**  Verbose mode true/false */
         this.verbose = !!verbose;
@@ -32,6 +34,11 @@ class SideshiftAPI {
         this.HEADER_WITH_TOKEN = {
             ...this.HEADER,
             "x-sideshift-secret": this.SIDESHIFT_SECRET
+        };
+        
+        this.HEADER_COMMISSION = {
+            ...this.HEADER_WITH_TOKEN,
+            ...(this.COMMISSION_RATE !== "0.5" && { commissionRate: this.COMMISSION_RATE }),
         };
 
         this.imageHeader = {
@@ -49,10 +56,48 @@ class SideshiftAPI {
                 method: "GET"
         };
         
+        this.requestHeaderCommission = {
+            headers: this.HEADER_COMMISSION,
+            method: "GET"
+        };
+
         /** Base URL */
         this.BASE_URL = "https://sideshift.ai/api/v2";
     }
 
+
+    _filterHeaders(headers) {
+        if (!headers) return 'None';
+        
+        const filtered = { ...headers };
+        const sensitiveKeys = 'x-sideshift-secret';
+        
+        if (filtered[sensitiveKeys]) {
+            filtered[sensitiveKeys] = '[FILTERED]';
+        }
+        
+        return JSON.stringify(filtered, null, 2);
+    }
+
+    /**
+     * Set common error properties on an Error object
+     * @private
+     * @param {string} message - The error message
+     * @param {Object} response - Fetch response object
+     * @param {string} url - The API endpoint URL
+     * @param {Object} options - Fetch options
+     * @param {*} errorData - Error data to assign to error.error
+     * @returns {Error}
+     */
+    _createError(message, response, url, options, errorData) {
+        const error = new Error(message);
+        error.status = response?.status;
+        error.statusText = response?.statusText;
+        error.url = url;
+        error.options = options;
+        error.error = errorData;
+        return error;
+    }
 
     /**
      * Handle the API request
@@ -67,9 +112,9 @@ class SideshiftAPI {
         if(this.verbose){
             console.log('\n=== DEBUG REQUEST ===');
             console.log('URL:', url);
-            console.log('Method:', options.method);
-            console.log('Headers:', options.headers);
-            console.log('Body (stringified):', typeof options.body === 'string' ? options.body : JSON.stringify(options.body));
+            console.log('Method:', options?.method);
+            console.log('Headers:', options?.headers ? this._filterHeaders(options.headers) : 'None');
+            console.log('Body:', options?.body ? typeof options.body === 'string' ? options.body : JSON.stringify(options.body, null, 2) : 'No body');
             console.log('=====================');
         }
         if (!response.ok) {
@@ -77,16 +122,20 @@ class SideshiftAPI {
             
             try {
                 errorData = await response.json();
-            } catch (jsonError) {
-                errorData = await response.text();
+            } catch {
+                try {
+                    errorData = await response.text();
+                } catch {
+                    errorData = { message: 'Failed to parse error details' };
+                }
             }
             
-            const error = new Error(`HTTP ${response.status} ${response.statusText}`);
-            error.status = response.status;
-            error.statusText = response.statusText;
-            error.url = url;
-            error.options = options;
-            error.error = errorData.error || { message: 'Unknown error' };
+            const error = this._createError(`HTTP ${response?.status} ${response?.statusText}`,
+                response,
+                url,
+                options,
+                errorData.error || errorData
+            );
             
             throw error;
         }
@@ -102,11 +151,36 @@ class SideshiftAPI {
      * @returns {Promise<Object>} Response data or error object
      */
     async _request(url, options = {}) {
-       
         const response = await fetch(url, options);
         const handledResponse = await this._handleResponse(response, url, options);
         
-        return await handledResponse.json();
+        // Because of cancel-order - Check if the response is 204 before parsing JSON
+        if (url === `${this.BASE_URL}/cancel-order` && handledResponse.status === 204) {
+            let orderId = null;
+            if (options?.body && typeof options?.body === 'string') {
+                try {
+                    const parsedBody = JSON.parse(options.body);
+                    orderId = parsedBody.orderId;
+                } catch (e) {
+                    if(this.verbose) console.error('Failed to parse request body:', e);
+                }
+            }
+            return { success: true, orderId: orderId };
+        }
+
+        try {
+            return await handledResponse.json();
+        } catch (e) {
+            const text = await handledResponse.text();
+            const error = this._createError(`HTTP error - Non-JSON response received: ${text}`,
+                response,
+                url,
+                options,
+                e
+            );
+
+            throw error;
+        }
     }
 
     /**
@@ -117,31 +191,41 @@ class SideshiftAPI {
      * @returns {Promise<Blob|Object>} Image blob or error object
      */    
     async _requestImage(url, options = {}) {
-        
         const response = await fetch(url, options);
         const handledResponse = await this._handleResponse(response, url, options);
         
-        return await handledResponse.blob();
+        try {
+            return await handledResponse.blob();
+        } catch (e) {
+            const error = this._createError(
+                `Failed to process image response: ${error.message}`, 
+                response, 
+                url, 
+                options, 
+                e
+            );
+            throw error;
+        }
     }
 
 
     /** Error message for Input Validation */
-    errorMsg(fieldName, source) {
+    _errorMsg(fieldName, source) {
         const error = `Error from ${source}: Missing or invalid ${fieldName} parameter`;
         return error;
     }
 
     /** Input Validation */
-    validateString(value, fieldName, source) {
+    _validateString(value, fieldName, source) {
         if (!value || typeof value !== 'string' || !value.trim()) {
-            const error = this.errorMsg(fieldName, source);
+            const error = this._errorMsg(fieldName, source);
             throw new Error(`${error}`);
         }
         return value.trim();
     }
-    validateOptinalString(value, fieldName, source) {
+    _validateOptinalString(value, fieldName, source) {
         if (value && typeof value !== 'string') {
-            const error = this.errorMsg(fieldName, source);
+            const error = this._errorMsg(fieldName, source);
             throw new Error(`${error}`);
         }
         if(value === null || value === undefined){
@@ -150,12 +234,24 @@ class SideshiftAPI {
             return value.trim();
         }
     }
-    validateNumber(value, fieldName, source) {
+    _validateNumber(value, fieldName, source) {
         if (value !== null && (typeof value !== 'number' || value < 0)) {
-            const error = this.errorMsg(fieldName, source);
+            const error = this._errorMsg(fieldName, source);
             throw new Error(`${error}`);
         }
         return value;
+    }
+
+    /**
+     * Get common request header with commission rate if applicable
+     * @private
+     * @returns {Object} Request header object
+     */
+    _getSpecialHeader(userIP) {
+        return {
+            ...this.HEADER_COMMISSION,
+            ...(userIP && { "x-user-ip": userIP }),
+        };
     }
 
 
@@ -192,7 +288,10 @@ class SideshiftAPI {
      * @returns {Promise<Object>} Pair data from API
      */
     async getPair(from, to) {
-        return this._request(`${this.BASE_URL}/pair/${from}/${to}`, this.requestHeaderWithToken);
+        const queryParams = new URLSearchParams({
+            affiliateId: this.SIDESHIFT_ID,
+        });
+        return this._request(`${this.BASE_URL}/pair/${from}/${to}/?${queryParams}`, this.requestHeaderCommission);
     }
 
     /**
@@ -202,9 +301,10 @@ class SideshiftAPI {
      */
     async getPairs(arrayOfCoins) {
         const queryParams = new URLSearchParams({
-            pairs: arrayOfCoins.join(',') // 'btc-mainnet,usdc-bsc,bch,eth'
+            pairs: arrayOfCoins.join(','), // 'btc-mainnet,usdc-bsc,bch,eth'
+            affiliateId: this.SIDESHIFT_ID,
         });
-        return this._request(`${this.BASE_URL}/pairs/?${queryParams}`, this.requestHeaderWithToken);
+        return this._request(`${this.BASE_URL}/pairs?${queryParams}`, this.requestHeaderCommission);
     }
 
     /**
@@ -273,21 +373,31 @@ class SideshiftAPI {
     /** API functions - POST */
     /**
      * Request a quote for a shift
-     * @param {string} depositCoin - Deposit coin symbol
-     * @param {string} depositNetwork - Deposit network
-     * @param {string} settleCoin - Settle coin symbol
-     * @param {string} settleNetwork - Settle network
-     * @param {number} depositAmount - Deposit amount
-     * @param {number} settleAmount - Settle amount
+     * @param {Object} options - Configuration options
+     * @param {string} options.depositCoin - Deposit coin symbol
+     * @param {string} options.depositNetwork - Deposit network
+     * @param {string} options.settleCoin - Settle coin symbol
+     * @param {string} options.settleNetwork - Settle network
+     * @param {number} options.depositAmount - Deposit amount
+     * @param {number} options.settleAmount - Settle amount
      * @returns {Promise<Object>} Quote data from API
      */
-    async requestQuote(depositCoin, depositNetwork, settleCoin, settleNetwork, depositAmount, settleAmount) {
-        this.validateString(depositCoin, "depositCoin", "requestQuote");
-        this.validateString(depositNetwork, "depositNetwork", "requestQuote");
-        this.validateString(settleCoin, "settleCoin", "requestQuote");
-        this.validateString(settleNetwork, "settleNetwork", "requestQuote");
-        this.validateNumber(depositAmount, "depositAmount", "requestQuote");
-        this.validateNumber(settleAmount, "settleAmount", "requestQuote");
+    async requestQuote({
+        depositCoin,
+        depositNetwork,
+        settleCoin,
+        settleNetwork,
+        depositAmount,
+        settleAmount,
+        userIP
+    }) {
+        this._validateString(depositCoin, "depositCoin", "requestQuote");
+        this._validateString(depositNetwork, "depositNetwork", "requestQuote");
+        this._validateString(settleCoin, "settleCoin", "requestQuote");
+        this._validateString(settleNetwork, "settleNetwork", "requestQuote");
+        this._validateNumber(depositAmount, "depositAmount", "requestQuote");
+        this._validateNumber(settleAmount, "settleAmount", "requestQuote");
+        this._validateOptinalString(userIP, "userIP", "requestQuote");
 
         const quoteBody = {
             "depositCoin": depositCoin,
@@ -298,29 +408,40 @@ class SideshiftAPI {
             "settleAmount": settleAmount,
             "affiliateId": this.SIDESHIFT_ID
         };
-
+        
         return this._request(`${this.BASE_URL}/quotes`, {
-            headers: this.HEADER_WITH_TOKEN,
+            headers: this._getSpecialHeader(userIP),
             body: JSON.stringify(quoteBody),
             method: "POST"
         });
     }
 
+
     /**
      * Create a fixed shift
-     * @param {string} settleAddress - Settle address
-     * @param {string} quoteId - Quote ID
-     * @param {string} [settleMemo] - Settle memo (optional)
-     * @param {string} [refundAddress] - Refund address (optional)
-     * @param {string} [refundMemo] - Refund memo (optional)
+     * @param {Object} options - Configuration options
+     * @param {string} options.settleAddress - Settle address
+     * @param {string} options.quoteId - Quote ID
+     * @param {string} [options.userIP] - User IP (optional)
+     * @param {string} [options.settleMemo] - Settle memo (optional)
+     * @param {string} [options.refundAddress] - Refund address (optional)
+     * @param {string} [options.refundMemo] - Refund memo (optional)
      * @returns {Promise<Object>} Created shift data from API
      */
-    async createFixedShift(settleAddress, quoteId, settleMemo, refundAddress, refundMemo) {
-        this.validateString(settleAddress, "settleAddress", "createFixedShift");
-        this.validateString(quoteId, "quoteId", "createFixedShift");
-        this.validateOptinalString(settleMemo, "settleMemo", "createFixedShift");
-        this.validateOptinalString(refundAddress, "refundAddress", "createFixedShift");
-        this.validateOptinalString(refundMemo, "refundMemo", "createFixedShift");
+    async createFixedShift({
+        settleAddress,
+        quoteId,
+        settleMemo,
+        refundAddress,
+        refundMemo,
+        userIP
+    }) {
+        this._validateString(settleAddress, "settleAddress", "createFixedShift");
+        this._validateString(quoteId, "quoteId", "createFixedShift");
+        this._validateOptinalString(settleMemo, "settleMemo", "createFixedShift");
+        this._validateOptinalString(refundAddress, "refundAddress", "createFixedShift");
+        this._validateOptinalString(refundMemo, "refundMemo", "createFixedShift");
+        this._validateOptinalString(userIP, "userIP", "createFixedShift");
 
         const fixedShiftBody = {
             settleAddress,
@@ -332,33 +453,47 @@ class SideshiftAPI {
         };
 
         return this._request(`${this.BASE_URL}/shifts/fixed`, {
-            headers: this.HEADER_WITH_TOKEN,
+            headers: this._getSpecialHeader(userIP),
             body: JSON.stringify(fixedShiftBody),
             method: "POST"
         });
     }
 
+
     /**
      * Create a variable shift
-     * @param {string} settleAddress - Settle address
-     * @param {string} settleCoin - Settle coin symbol
-     * @param {string} settleNetwork - Settle network
-     * @param {string} depositCoin - Deposit coin symbol
-     * @param {string} depositNetwork - Deposit network
-     * @param {string} [refundAddress] - Refund address (optional)
-     * @param {string} [settleMemo] - Settle memo (optional)
-     * @param {string} [refundMemo] - Refund memo (optional)
+     * @param {Object} options - Configuration options
+     * @param {string} options.settleAddress - Settle address
+     * @param {string} options.settleCoin - Settle coin symbol
+     * @param {string} options.settleNetwork - Settle network
+     * @param {string} options.depositCoin - Deposit coin symbol
+     * @param {string} options.depositNetwork - Deposit network
+     * @param {string} [options.userIP] - User IP (optional)
+     * @param {string} [options.refundAddress] - Refund address (optional)
+     * @param {string} [options.settleMemo] - Settle memo (optional)
+     * @param {string} [options.refundMemo] - Refund memo (optional)
      * @returns {Promise<Object>} Created shift data from API
      */
-    async createVariableShift(settleAddress, settleCoin, settleNetwork, depositCoin, depositNetwork, refundAddress, settleMemo, refundMemo) {
-        this.validateString(settleAddress, "settleAddress", "createVariableShift");
-        this.validateString(settleCoin, "settleCoin", "createVariableShift");
-        this.validateString(settleNetwork, "settleNetwork", "createVariableShift");
-        this.validateString(depositCoin, "depositCoin", "createVariableShift");
-        this.validateString(depositNetwork, "depositNetwork", "createVariableShift");
-        this.validateOptinalString(refundAddress, "refundAddress", "createVariableShift");
-        this.validateOptinalString(settleMemo, "settleMemo", "createVariableShift");
-        this.validateOptinalString(refundMemo, "refundMemo", "createVariableShift");
+    async createVariableShift({
+        settleAddress,
+        settleCoin,
+        settleNetwork,
+        depositCoin,
+        depositNetwork,
+        refundAddress,
+        settleMemo,
+        refundMemo,
+        userIP
+    }) {
+        this._validateString(settleAddress, "settleAddress", "createVariableShift");
+        this._validateString(settleCoin, "settleCoin", "createVariableShift");
+        this._validateString(settleNetwork, "settleNetwork", "createVariableShift");
+        this._validateString(depositCoin, "depositCoin", "createVariableShift");
+        this._validateString(depositNetwork, "depositNetwork", "createVariableShift");
+        this._validateOptinalString(refundAddress, "refundAddress", "createVariableShift");
+        this._validateOptinalString(settleMemo, "settleMemo", "createVariableShift");
+        this._validateOptinalString(refundMemo, "refundMemo", "createVariableShift");
+        this._validateOptinalString(userIP, "userIP", "createVariableShift");
 
         const variableShiftBody = {
             settleAddress,
@@ -370,10 +505,10 @@ class SideshiftAPI {
             ...(settleMemo && { settleMemo }),
             ...(refundAddress && { refundAddress }),
             ...(refundMemo && { refundMemo }),
-        };        
+        };
 
         return this._request(`${this.BASE_URL}/shifts/variable`, {
-            headers: this.HEADER_WITH_TOKEN,
+            headers: this._getSpecialHeader(userIP),
             body: JSON.stringify(variableShiftBody),
             method: "POST"
         });
@@ -381,21 +516,27 @@ class SideshiftAPI {
 
     /**
      * Set refund address for a shift
-     * @param {string} shiftId - Shift ID
-     * @param {string} refundAddress - Refund address
-     * @param {string} [refundMemo] - Refund memo (optional)
+     * @param {Object} options - Configuration options
+     * @param {string} options.shiftId - Shift ID
+     * @param {string} options.refundAddress - Refund address
+     * @param {string} [options.refundMemo] - Refund memo (optional)
      * @returns {Promise<Object>} Update result from API
      */
-    async setRefundAddress(shiftId, refundAddress, refundMemo) {
-        this.validateString(shiftId, "shiftId", "setRefundAddress");
-        this.validateString(refundAddress, "refundAddress", "setRefundAddress");
-        this.validateOptinalString(refundMemo, "refundMemo", "setRefundAddress");
+    async setRefundAddress({
+        shiftId,
+        refundAddress,
+        refundMemo
+    }) {
+        this._validateString(shiftId, "shiftId", "setRefundAddress");
+        this._validateString(refundAddress, "refundAddress", "setRefundAddress");
+        this._validateOptinalString(refundMemo, "refundMemo", "setRefundAddress");
 
         const bodyObj = { 
             "address": refundAddress,
+            ...(refundMemo && { "memo": refundMemo })
         };
         
-        if (refundMemo) bodyObj.memo = refundMemo;
+        // if (refundMemo) bodyObj.memo = refundMemo;
 
         return this._request(`${this.BASE_URL}/shifts/${shiftId}/set-refund-address`, {
             headers: this.HEADER_WITH_TOKEN,
@@ -404,13 +545,14 @@ class SideshiftAPI {
         });
     }
 
+
     /**
      * Cancel an order
      * @param {string} orderID - Order ID to cancel
      * @returns {Promise<Object>} Cancel result from API
      */
     async cancelOrder(orderID) {
-        this.validateString(orderID, "orderID", "cancelOrder");
+        this._validateString(orderID, "orderID", "cancelOrder");
         
         const bodyObj = { 
             "orderId": orderID 
@@ -425,23 +567,34 @@ class SideshiftAPI {
 
     /**
      * Create a checkout
-     * @param {string} settleCoin - Settle coin symbol
-     * @param {string} settleNetwork - Settle network
-     * @param {number} settleAmount - Settle amount
-     * @param {string} settleAddress - Settle address
-     * @param {string} successUrl - Success URL
-     * @param {string} cancelUrl - Cancel URL
-     * @param {string} [settleMemo] - Settle memo (optional)
+     * @param {Object} options - Configuration options
+     * @param {string} options.settleCoin - Settle coin symbol
+     * @param {string} options.settleNetwork - Settle network
+     * @param {number} options.settleAmount - Settle amount
+     * @param {string} options.settleAddress - Settle address
+     * @param {string} options.successUrl - Success URL
+     * @param {string} options.cancelUrl - Cancel URL
+     * @param {string} [options.settleMemo] - Settle memo (optional)
      * @returns {Promise<Object>} Checkout data from API
      */
-    async createCheckout(settleCoin, settleNetwork, settleAmount, settleAddress, successUrl, cancelUrl, settleMemo) {
-        this.validateString(settleCoin, "settleCoin", "createVariableShift");
-        this.validateString(settleNetwork, "settleNetwork", "createVariableShift");
-        this.validateNumber(settleAmount, "settleAmount", "createVariableShift");
-        this.validateString(settleAddress, "settleAddress", "createVariableShift");
-        this.validateString(successUrl, "successUrl", "createVariableShift");
-        this.validateString(cancelUrl, "cancelUrl", "createVariableShift");
-        this.validateOptinalString(settleMemo, "settleMemo", "createVariableShift");
+    async createCheckout({
+        settleCoin,
+        settleNetwork,
+        settleAmount,
+        settleAddress,
+        successUrl,
+        cancelUrl,
+        settleMemo,
+        userIP
+    }) {
+        this._validateString(settleCoin, "settleCoin", "createVariableShift");
+        this._validateString(settleNetwork, "settleNetwork", "createVariableShift");
+        this._validateNumber(settleAmount, "settleAmount", "createVariableShift");
+        this._validateString(settleAddress, "settleAddress", "createVariableShift");
+        this._validateString(successUrl, "successUrl", "createVariableShift");
+        this._validateString(cancelUrl, "cancelUrl", "createVariableShift");
+        this._validateOptinalString(settleMemo, "settleMemo", "createVariableShift");
+        this._validateOptinalString(userIP, "userIP", "createVariableShift");
 
         const checkoutBody = {
             settleCoin,
@@ -452,14 +605,15 @@ class SideshiftAPI {
             cancelUrl,
             affiliateId: this.SIDESHIFT_ID,
             ...(settleMemo && { settleMemo })
-        };   
+        };
 
         return this._request(`${this.BASE_URL}/checkout`, {
-            headers: this.HEADER_WITH_TOKEN,
+            headers: this._getSpecialHeader(userIP),
             body: JSON.stringify(checkoutBody),
             method: "POST"
         });
     }
+
 }
 
 
