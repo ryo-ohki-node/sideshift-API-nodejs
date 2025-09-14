@@ -50,10 +50,6 @@ const sideshift = new SideshiftAPI({
 
 
 ## Verbose mode
-```
-const sideshift = new SideshiftAPI(SIDESHIFT_SECRET, SIDESHIFT_ID, COMMISSION_RATE, true);
-```
-
 When verbose mode is enabled, all requests are logged with:
 - URL and HTTP method
 - Request headers
