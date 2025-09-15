@@ -1,9 +1,5 @@
 // Demo server for SideshiftAPI.js module.
 const fs = require('fs');
-if(!fs.existsSync(__dirname+'/.env')) {
-	console.log('.env file not found - Cannot start.');
-	process.exit(1);
-}
 
 // Create Express app + http server
 const express = require('express');
