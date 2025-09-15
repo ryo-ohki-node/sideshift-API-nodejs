@@ -226,7 +226,7 @@ class SideshiftAPI {
 
         } catch (err) {
             clearTimeout(timeoutId);
-            const error = this._createError(`Fetch API error: ${err.error.message || err}`,
+            const error = this._createError(`Fetch API error: ${err.error?.message || err.message || err}`,
                 null,
                 url,
                 options,
@@ -267,7 +267,7 @@ class SideshiftAPI {
             }
         } catch (err) {
             clearTimeout(timeoutId);
-            const error = this._createError(`Fetch API image error: ${err.error.message || err}`,
+            const error = this._createError(`Fetch API image error: ${err.error?.message || err.message || err}`,
                 null,
                 url,
                 options,
@@ -320,6 +320,7 @@ class SideshiftAPI {
         return {
             ...this.HEADER_COMMISSION,
             ...(userIP && { "x-user-ip": userIP }),
+            // ...(userIP !== null && userIP !== undefined && { "x-user-ip": userIP }),
         };
     }
 
