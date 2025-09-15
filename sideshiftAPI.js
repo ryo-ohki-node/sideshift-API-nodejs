@@ -10,7 +10,7 @@ class SideshiftAPI {
      * @param {string} commisssionRate - Your commission rate from 0 to 2.
      * @param {string} verbose - If true, activate console.error output.
      */
-    constructor({secret, id, commisssionRate = "0.5", verbose = false}) {
+    constructor({secret, id, commisssionRate = "0.5", verbose = false, retries = {}}) {
         /** Auth Configuration */
         if (!secret || typeof secret !== 'string' || !secret.trim()) {
             throw new Error(`SIDESHIFT_SECRET must be a non-empty string. Provided: ${secret}`);
@@ -22,6 +22,12 @@ class SideshiftAPI {
         this.SIDESHIFT_SECRET = secret;
         this.SIDESHIFT_ID = id;
         this.COMMISSION_RATE = String(commisssionRate); 
+
+        /** Max retries configurations */
+        this.maxRetries = retries.maxRetries || 3;
+        this.retryDelay = retries.retryDelay || 1000; // 1 second
+        this.retryBackoff = retries.retryBackoff || 1; // exponential backoff multiplier
+
 
         /**  Verbose mode true/false */
         this.verbose = !!verbose;
@@ -80,6 +86,27 @@ class SideshiftAPI {
         return JSON.stringify(filtered, null, 2);
     }
 
+    // _shouldRetry(error) {
+    //     if (error.name === 'TypeError' || error.message.includes('fetch') || error.message.includes('timeout')) {
+    //         return true;
+    //     }
+        
+    //     if (error.status && error.status >= 500) {
+    //         return true;
+    //     }
+        
+    //     if (error.status && error.status >= 400 && error.status < 500) {
+    //         return error.status === 429;
+    //     }
+        
+    //     return false;
+    // }
+
+    // _delay(ms) {
+    //     return new Promise(resolve => setTimeout(resolve, ms));
+    // }
+
+
     /**
      * Set common error properties on an Error object
      * @private
@@ -109,7 +136,7 @@ class SideshiftAPI {
      * @returns {Promise<Object>} Resolves with the response object if successful
      * @throws {Error} Throws an error with HTTP status details and error data when response is not ok
      */
-    async _handleResponse(response, url, options) {
+    async _handleResponse(response, url, options, retries) {
         if (this.verbose){
             console.log('\n=== DEBUG REQUEST ===');
             console.log('URL:', url);
@@ -137,7 +164,14 @@ class SideshiftAPI {
                 options,
                 errorData.error || errorData
             );
-       
+
+            // if (retries < this.maxRetries && this._shouldRetry(error)) {
+            //     if (this.verbose) console.warn(`Request failed, retrying in ${this.retryDelay * Math.pow(this.retryBackoff, retries)}ms...`, error.message);
+                
+            //     await this._delay(this.retryDelay * Math.pow(this.retryBackoff, retries));
+            //     return this._request(url, options, retries + 1);
+            // }   
+            
             throw error;
         }
         
@@ -151,7 +185,7 @@ class SideshiftAPI {
      * @param {Object} options - Fetch options
      * @returns {Promise<Object>} Response data or error object
      */
-    async _request(url, options = {}) {
+    async _request(url, options = {}, retries = 0) {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
         try {
@@ -192,7 +226,7 @@ class SideshiftAPI {
 
         } catch (err) {
             clearTimeout(timeoutId);
-            const error = this._createError(`Fetch error: ${err.message || err}`,
+            const error = this._createError(`Fetch API error: ${err.error.message || err}`,
                 null,
                 url,
                 options,
@@ -233,7 +267,7 @@ class SideshiftAPI {
             }
         } catch (err) {
             clearTimeout(timeoutId);
-            const error = this._createError(`Fetch image error: ${err.message || err}`,
+            const error = this._createError(`Fetch API image error: ${err.error.message || err}`,
                 null,
                 url,
                 options,
@@ -571,8 +605,6 @@ class SideshiftAPI {
             ...(refundMemo && { "memo": refundMemo })
         };
         
-        // if (refundMemo) bodyObj.memo = refundMemo;
-
         return this._request(`${this.BASE_URL}/shifts/${shiftId}/set-refund-address`, {
             headers: this.HEADER_WITH_TOKEN,
             body: JSON.stringify(bodyObj),
