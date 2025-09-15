@@ -66,6 +66,7 @@ class SideshiftAPI {
     }
 
 
+    /** Filter API key from the log */
     _filterHeaders(headers) {
         if (!headers) return 'None';
         
@@ -109,7 +110,7 @@ class SideshiftAPI {
      * @throws {Error} Throws an error with HTTP status details and error data when response is not ok
      */
     async _handleResponse(response, url, options) {
-        if(this.verbose){
+        if (this.verbose){
             console.log('\n=== DEBUG REQUEST ===');
             console.log('URL:', url);
             console.log('Method:', options?.method);
@@ -119,7 +120,7 @@ class SideshiftAPI {
         }
         if (!response.ok) {
             let errorData = {};
-            
+
             try {
                 errorData = await response.json();
             } catch {
@@ -136,7 +137,7 @@ class SideshiftAPI {
                 options,
                 errorData.error || errorData
             );
-            
+       
             throw error;
         }
         
@@ -151,34 +152,52 @@ class SideshiftAPI {
      * @returns {Promise<Object>} Response data or error object
      */
     async _request(url, options = {}) {
-        const response = await fetch(url, options);
-        const handledResponse = await this._handleResponse(response, url, options);
-        
-        // Because of cancel-order - Check if the response is 204 before parsing JSON
-        if (url === `${this.BASE_URL}/cancel-order` && handledResponse.status === 204) {
-            let orderId = null;
-            if (options?.body && typeof options?.body === 'string') {
-                try {
-                    const parsedBody = JSON.parse(options.body);
-                    orderId = parsedBody.orderId;
-                } catch (e) {
-                    if(this.verbose) console.error('Failed to parse request body:', e);
-                }
-            }
-            return { success: true, orderId: orderId };
-        }
-
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
         try {
-            return await handledResponse.json();
-        } catch (e) {
-            const text = await handledResponse.text();
-            const error = this._createError(`HTTP error - Non-JSON response received: ${text}`,
-                response,
+            const response = await fetch(url, { 
+                ...options, 
+                signal: controller.signal 
+            });
+            clearTimeout(timeoutId);
+            const handledResponse = await this._handleResponse(response, url, options, retries);
+            
+            // Because of cancel-order - Check if the response is 204 before parsing JSON
+            if (url === `${this.BASE_URL}/cancel-order` && handledResponse.status === 204) {
+                let orderId = null;
+                if (options?.body && typeof options?.body === 'string') {
+                    try {
+                        const parsedBody = JSON.parse(options.body);
+                        orderId = parsedBody.orderId;
+                    } catch (e) {
+                        if(this.verbose) console.error('Failed to parse request body:', e);
+                    }
+                }
+                return { success: true, orderId: orderId };
+            }
+
+            try {
+                return await handledResponse.json();
+            } catch (e) {
+                const text = await handledResponse.text();
+                const error = this._createError(`HTTP error - Non-JSON response received: ${text}`,
+                    response,
+                    url,
+                    options,
+                    e
+                );
+
+                throw error;
+            }
+
+        } catch (err) {
+            clearTimeout(timeoutId);
+            const error = this._createError(`Fetch error: ${err.message || err}`,
+                null,
                 url,
                 options,
-                e
+                err
             );
-
             throw error;
         }
     }
@@ -191,18 +210,34 @@ class SideshiftAPI {
      * @returns {Promise<Blob|Object>} Image blob or error object
      */    
     async _requestImage(url, options = {}) {
-        const response = await fetch(url, options);
-        const handledResponse = await this._handleResponse(response, url, options);
-        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
         try {
-            return await handledResponse.blob();
-        } catch (e) {
-            const error = this._createError(
-                `Failed to process image response: ${error.message}`, 
-                response, 
-                url, 
-                options, 
-                e
+            const response = await fetch(url, { 
+                ...options, 
+                signal: controller.signal 
+            });
+            clearTimeout(timeoutId);
+            const handledResponse = await this._handleResponse(response, url, options);
+            
+            try {
+                return await handledResponse.blob();
+            } catch (e) {
+                const error = this._createError(`Failed to process image response: ${e.message || e}`, 
+                    response, 
+                    url, 
+                    options, 
+                    e
+                );
+                throw error;
+            }
+        } catch (err) {
+            clearTimeout(timeoutId);
+            const error = this._createError(`Fetch image error: ${err.message || err}`,
+                null,
+                url,
+                options,
+                err
             );
             throw error;
         }
