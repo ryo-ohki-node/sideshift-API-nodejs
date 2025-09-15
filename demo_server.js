@@ -1,34 +1,31 @@
 // Demo server for SideshiftAPI.js module.
-const express = require('express');
-const http = require('http');
 const fs = require('fs');
+if(!fs.existsSync(__dirname+'/.env')) {
+	console.log('.env file not found - Cannot start.');
+	process.exit(1);
+}
 
-// Create Express app
+// Create Express app + http server
+const express = require('express');
 const app = express();
+const http = require('http');
 const PORT = 3000;
 
 // parsing
-const bodyParser = require('body-parser');
-// for parsing application/json
-app.use(bodyParser.json()); 
-// for parsing application/xwww-
-app.use(bodyParser.urlencoded({ extended: true })); 
-
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Load sideshift module
 const SideshiftAPI = require('./sideshift_module.js');
 
-// Set or import your ID and secret variable 
 const SIDESHIFT_ID = "Your_shideshift_ID"; 
 const SIDESHIFT_SECRET = "Your_shideshift_secret";
 
-const sideshift = new SideshiftAPI(SIDESHIFT_SECRET, SIDESHIFT_ID, true);
-
+const sideshift = new SideshiftAPI({secret: SIDESHIFT_SECRET, id: SIDESHIFT_ID, verbose: true});
 
 
 
 // Routes for each function in the Sideshift API module
-
 // GET routes
 
 // Get list of supported coins
@@ -50,7 +47,7 @@ app.get('/coin-icon/:coin', async (req, res) => {
 			// Convert Blob to Buffer
 			const arrayBuffer = await icon.arrayBuffer();
 			const buffer = Buffer.from(arrayBuffer);
-			res.set('Content-Type', icon.type || 'image/svg'); // adjust based on actual type
+			res.set('Content-Type', icon.type || 'image/svg');
 			res.send(buffer);
 		} else {
 			res.status(404).json({ error: 'Icon not found' });
@@ -140,10 +137,10 @@ try {
 
 // POST routes
 
-// Get multiple pairs
+//  multiple pairs
 app.post('/pairs', async (req, res) => {
 	try {
-		const { coins } = req.body; // e.g., ['btc-mainnet', 'eth']
+		const { coins } = req.body; // e.g., ['btc-mainnet', 'eth-mainnet']
 		const pairs = await sideshift.getPairs(coins);
 		res.json(pairs);
 	} catch (error) {
@@ -164,97 +161,102 @@ app.post('/shifts/bulk', async (req, res) => {
 
 // Request a quote for a shift
 app.post('/quotes', async (req, res) => {
-try {
-	const {
-	depositCoin,
-	depositNetwork,
-	settleCoin,
-	settleNetwork,
-	depositAmount,
-	settleAmount
-	} = req.body;
+	try {
+		const {
+			depositCoin,
+			depositNetwork,
+			settleCoin,
+			settleNetwork,
+			depositAmount,
+			settleAmount
+		} = req.body;
 
-	const quote = await sideshift.requestQuote(
-	depositCoin,
-	depositNetwork,
-	settleCoin,
-	settleNetwork,
-	depositAmount,
-	settleAmount
-	);
+		const quote = await sideshift.requestQuote({
+			depositCoin,
+			depositNetwork,
+			settleCoin,
+			settleNetwork,
+			depositAmount,
+			settleAmount,
+		});
 
-	res.json(quote);
-} catch (error) {
-	res.status(400).json({ error: 'Failed to request quote', details: error.message });
-}
+		res.json(quote);
+	} catch (error) {
+		res.status(400).json({ error: 'Failed to request quote', details: error.message });
+	}
 });
 
 // Create a fixed shift
 app.post('/shifts/fixed', async (req, res) => {
-try {
-	const {
-	settleAddress,
-	quoteId,
-	settleMemo,
-	refundAddress,
-	refundMemo
-	} = req.body;
+	try {
+		const {
+			settleAddress,
+			quoteId,
+			settleMemo,
+			refundAddress,
+			refundMemo
+		} = req.body;
 
-	const shift = await sideshift.createFixedShift(
-	settleAddress,
-	quoteId,
-	settleMemo,
-	refundAddress,
-	refundMemo
-	);
+		const shift = await sideshift.createFixedShift({
+			settleAddress,
+			quoteId,
+			settleMemo,
+			refundAddress,
+			refundMemo,
+		});
 
-	res.json(shift);
-} catch (error) {
-	res.status(400).json({ error: 'Failed to create fixed shift', details: error.message });
-}
+		res.json(shift);
+	} catch (error) {
+		res.status(400).json({ error: 'Failed to create fixed shift', details: error.message });
+	}
 });
 
 // Create a variable shift
 app.post('/shifts/variable', async (req, res) => {
-try {
-	const {
-	settleAddress,
-	settleCoin,
-	settleNetwork,
-	depositCoin,
-	depositNetwork,
-	refundAddress,
-	settleMemo,
-	refundMemo
-	} = req.body;
+	try {
+		const {
+			settleAddress,
+			settleCoin,
+			settleNetwork,
+			depositCoin,
+			depositNetwork,
+			refundAddress,
+			settleMemo,
+			refundMemo
+		} = req.body;
 
-	const shift = await sideshift.createVariableShift(
-	settleAddress,
-	settleCoin,
-	settleNetwork,
-	depositCoin,
-	depositNetwork,
-	refundAddress,
-	settleMemo,
-	refundMemo
-	);
+		const shift = await sideshift.createVariableShift({
+			settleAddress,
+			settleCoin,
+			settleNetwork,
+			depositCoin,
+			depositNetwork,
+			refundAddress,
+			settleMemo,
+			refundMemo,
+		});
 
-	res.json(shift);
-} catch (error) {
-	res.status(400).json({ error: 'Failed to create variable shift', details: error.message });
-}
+		res.json(shift);
+	} catch (error) {
+		res.status(400).json({ error: 'Failed to create variable shift', details: error.message });
+	}
 });
 
 // Set refund address for a shift
 app.post('/shifts/:id/set-refund-address', async (req, res) => {
-try {
-	const { id } = req.params;
-	const { refundAddress, refundMemo } = req.body;
-	const result = await sideshift.setRefundAddress(String(id), String(refundAddress), refundMemo);
-	res.json(result);
-} catch (error) {
-	res.status(400).json({ error: 'Failed to set refund address', details: error.message });
-}
+	try {
+		const { id } = req.params;
+		const { refundAddress, refundMemo } = req.body;
+		// const result = await sideshift.setRefundAddress(String(id), String(refundAddress), refundMemo);
+		const result = await sideshift.setRefundAddress({
+			shiftId: id,
+			refundAddress,
+			refundMemo
+		});
+		res.json(result);
+	} catch (error) {
+		res.status(400).json({ error: 'Failed to set refund address', details: error.message });
+	}
 });
 
 // Cancel an order
@@ -270,31 +272,31 @@ app.post('/cancel-order', async (req, res) => {
 
 // Create a checkout
 app.post('/checkout', async (req, res) => {
-try {
-	const {
-	settleCoin,
-	settleNetwork,
-	settleAmount,
-	settleAddress,
-	successUrl,
-	cancelUrl,
-	settleMemo
-	} = req.body;
+	try {
+		const {
+			settleCoin,
+			settleNetwork,
+			settleAmount,
+			settleAddress,
+			successUrl,
+			cancelUrl,
+			settleMemo
+		} = req.body;
 
-	const checkout = await sideshift.createCheckout(
-	settleCoin,
-	settleNetwork,
-	settleAmount,
-	settleAddress,
-	successUrl,
-	cancelUrl,
-	settleMemo
-	);
-	
-	res.json(checkout);
-} catch (error) {
-	res.status(400).json({ error: 'Failed to create checkout', details: error.message });
-}
+		const checkout = await sideshift.createCheckout({
+			settleCoin,
+			settleNetwork,
+			settleAmount,
+			settleAddress,
+			successUrl,
+			cancelUrl,
+			settleMemo,
+		});
+		
+		res.json(checkout);
+	} catch (error) {
+		res.status(400).json({ error: 'Failed to create checkout', details: error.message });
+	}
 });
 
 
