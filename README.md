@@ -1,5 +1,5 @@
 # sideshift-API-nodejs
-Sideshift API module for nodejs
+Sideshift API module for Node.js
 
 ## Use Cases
 This module provide an user-friendly interface to the official SideShift API. It can help integrate cryptocurrency swap into various applications, such as:
@@ -14,7 +14,7 @@ This module provide an user-friendly interface to the official SideShift API. It
 ## Key features
 - Easy Integration: With just a few lines of code to integrate cryptocurrency swapping capabilities into your Node.js applications.
 
-- Wide Coin Support: Access the full spectrum of 235+ coins supported by SideShift, allowing users to swap seamlessly between various cryptocurrencies.
+- Wide Coin Support: Access the full spectrum of 237+ coins supported by SideShift, allowing users to swap seamlessly between various cryptocurrencies.
 
 
 ## Installation
@@ -24,9 +24,9 @@ Demo Server Dependencies:
 ```
 npm install --save express http fs
 ```
-Module Dependencies:
+Module Dependencies (no need with the built-in fetch in Node.js 18+):
 ```
-npm install --save node-fetch
+npm install --save node-fetch // if Node.js version < 18
 ```
 
 ##  Load module
@@ -35,15 +35,13 @@ const SideshiftAPI = require('./sideshift_module.js');
 or import { SideshiftAPI } from './sideshift_module.js';
 
 const SIDESHIFT_ID = "Your_shideshift_ID";
-
 const SIDESHIFT_SECRET = "Your_shideshift_secret";
-
 const COMMISSION_RATE = "0.5"; // Min 0 and max 2, set your commission rate from 0 to 2%. Default is 0.5
 
 const sideshift = new SideshiftAPI({
   secret: SIDESHIFT_SECRET,
   id: SIDESHIFT_ID,
-  commisssionRate: "1", // Optional
+  commisssionRate: COMMISSION_RATE, // Optional
   verbose: true // Optional
 });
 ```
@@ -55,6 +53,7 @@ When verbose mode is enabled, all requests are logged with:
 - Request headers
 - Request body (stringified)
 - Full request/response details for troubleshooting
+- API key is hidden from the log
 
 
 **Log example**
@@ -87,4 +86,3 @@ When encountering errors, the module returns an error object with the following 
 
 ## Server call and response
 For detailed API call and response examples, see [SERVER_RESPONSES.md](SERVER_RESPONSES.md)
-
