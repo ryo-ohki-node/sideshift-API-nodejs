@@ -2,7 +2,7 @@
 
 ## GET function
 
-###getCoin()
+### getCoin()
 Returns the list of coins and their respective networks available on SideShift.ai.
 
 **Example Response:**
@@ -32,7 +32,7 @@ Returns the list of coins and their respective networks available on SideShift.a
 ### getCoinIcon()
 Returns the icon of the coin in svg or png format.
 
-return an image blob.
+return an image Blob.
 
 
 ### getPermissions()
