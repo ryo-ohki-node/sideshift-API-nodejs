@@ -114,7 +114,7 @@ class SideshiftAPI {
      * @param {Object} response - Fetch response object
      * @param {string} url - The API endpoint URL
      * @param {Object} options - Fetch options
-     * @param {*} errorData - Error data to assign to error.error
+     * @param {*} errorData - Error data
      * @returns {Error}
      */
     _createError(message, response, url, options, errorData) {
@@ -183,6 +183,7 @@ class SideshiftAPI {
      * @private
      * @param {string} url - The API endpoint URL
      * @param {Object} options - Fetch options
+     * @param {Number} retries - Number of retry done
      * @returns {Promise<Object>} Response data or error object
      */
     async _request(url, options = {}, retries = 0) {
@@ -450,6 +451,7 @@ class SideshiftAPI {
      * @param {string} options.settleNetwork - Settle network
      * @param {number} options.depositAmount - Deposit amount
      * @param {number} options.settleAmount - Settle amount
+     * @param {string} [userIP] - User IP address (optional)
      * @returns {Promise<Object>} Quote data from API
      */
     async requestQuote({
@@ -492,10 +494,10 @@ class SideshiftAPI {
      * @param {Object} options - Configuration options
      * @param {string} options.settleAddress - Settle address
      * @param {string} options.quoteId - Quote ID
-     * @param {string} [options.userIP] - User IP (optional)
      * @param {string} [options.settleMemo] - Settle memo (optional)
      * @param {string} [options.refundAddress] - Refund address (optional)
      * @param {string} [options.refundMemo] - Refund memo (optional)
+     * @param {string} [userIP] - User IP address (optional)
      * @returns {Promise<Object>} Created shift data from API
      */
     async createFixedShift({
@@ -538,10 +540,10 @@ class SideshiftAPI {
      * @param {string} options.settleNetwork - Settle network
      * @param {string} options.depositCoin - Deposit coin symbol
      * @param {string} options.depositNetwork - Deposit network
-     * @param {string} [options.userIP] - User IP (optional)
      * @param {string} [options.refundAddress] - Refund address (optional)
      * @param {string} [options.settleMemo] - Settle memo (optional)
      * @param {string} [options.refundMemo] - Refund memo (optional)
+     * @param {string} [userIP] - User IP address (optional)
      * @returns {Promise<Object>} Created shift data from API
      */
     async createVariableShift({
@@ -643,6 +645,7 @@ class SideshiftAPI {
      * @param {string} options.successUrl - Success URL
      * @param {string} options.cancelUrl - Cancel URL
      * @param {string} [options.settleMemo] - Settle memo (optional)
+     * @param {string} [userIP] - User IP address (optional)
      * @returns {Promise<Object>} Checkout data from API
      */
     async createCheckout({
