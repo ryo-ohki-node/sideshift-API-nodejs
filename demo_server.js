@@ -1,4 +1,6 @@
 // Demo server for SideshiftAPI.js module.
+require('dotenv').config({ quiet: true }); 
+
 const fs = require('fs');
 
 // Create Express app + http server
@@ -7,21 +9,77 @@ const app = express();
 const http = require('http');
 const PORT = 3000;
 
-// parsing
+// Parsing
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Load sideshift module
-const SideshiftAPI = require('./sideshift_module.js');
+const SideshiftAPI = require('./sideshiftAPI.js');
 
-const SIDESHIFT_ID = "Your_shideshift_ID"; 
-const SIDESHIFT_SECRET = "Your_shideshift_secret";
+const SIDESHIFT_ID = process.env.SIDESHIFT_ID ; //"Your_shideshift_ID"; 
+const SIDESHIFT_SECRET = process.env.SIDESHIFT_SECRET; // "Your_shideshift_secret";
 
-const sideshift = new SideshiftAPI({secret: SIDESHIFT_SECRET, id: SIDESHIFT_ID, verbose: true});
+const sideshift = new SideshiftAPI({secret: SIDESHIFT_SECRET, id: SIDESHIFT_ID, commisssionRate: "1", verbose: true});
 
+
+// IP address validation
+const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
+const ipv6Regex = /^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$/;
+
+function isValidIPv4(ip) {
+    if (!ipv4Regex.test(ip)) return false;
+    
+    const octets = ip.split('.');
+    for (const octet of octets) {
+        const num = parseInt(octet, 10);
+        if (num < 0 || num > 255) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function extractIPInfo(ipAddress) {
+	const result = {
+        full: ipAddress,
+		type: null,
+        address: null,
+    };
+    if (ipAddress.startsWith('::ffff:')) {
+        const ipv4Part = ipAddress.substring(7);
+		console.log(ipv4Part)
+        if (!isValidIPv4(ipv4Part)) {
+            throw new Error("invalid IP address");
+        }
+        ipAddress = ipv4Part;
+    }
+
+	if(ipAddress === "127.0.0.1" || ipAddress === "::1") {
+		result.type = "local";
+		result.address = "123.123.123.123"; // Set a virtual IP for local testing
+		return result;
+	} else if (ipAddress.includes('.')) {
+        if(!ipv4Regex.test(ipAddress)) throw new Error("invalid IP address");
+        const octets = ipAddress.split('.');
+        if (!isValidIPv4(ipAddress)) {
+            throw new Error("invalid IP address");
+        }
+		result.type = "IPv4";
+        result.address = ipAddress;
+    } else if (ipAddress.includes(':')) {
+        if(!ipv6Regex.test(ipAddress)) throw new Error("invalid IP address");
+        result.type = "IPv6";
+        result.address = ipAddress;
+    } else {
+        throw new Error("invalid IP address");
+    }
+    
+    return result;
+}
 
 
 // Routes for each function in the Sideshift API module
+
 // GET routes
 
 // Get list of supported coins
@@ -87,44 +145,44 @@ app.get('/shifts/:id', async (req, res) => {
 
 // Get recent shifts
 app.get('/recent-shifts', async (req, res) => {
-try {
-	const { limit } = req.query;
-	const shifts = await sideshift.getRecentShifts(limit ? parseInt(limit) : undefined);
-	res.json(shifts);
-} catch (error) {
-	res.status(500).json({ error: 'Failed to fetch recent shifts' });
-}
+	try {
+		const { limit } = req.query;
+		const shifts = await sideshift.getRecentShifts(limit ? parseInt(limit) : undefined);
+		res.json(shifts);
+	} catch (error) {
+		res.status(500).json({ error: 'Failed to fetch recent shifts' });
+	}
 });
 
 // Get XAI stats
 app.get('/xai/stats', async (req, res) => {
-try {
-	const xaiStats = await sideshift.getXaiStats();
-	res.json(xaiStats);
-} catch (error) {
-	res.status(500).json({ error: 'Failed to fetch XAI stats' });
-}
+	try {
+		const xaiStats = await sideshift.getXaiStats();
+		res.json(xaiStats);
+	} catch (error) {
+		res.status(500).json({ error: 'Failed to fetch XAI stats' });
+	}
 });
 
 // Get account info
 app.get('/account', async (req, res) => {
-try {
-	const account = await sideshift.getAccount();
-	res.json(account);
-} catch (error) {
-	res.status(500).json({ error: 'Failed to fetch account' });
-}
+	try {
+		const account = await sideshift.getAccount();
+		res.json(account);
+	} catch (error) {
+		res.status(500).json({ error: 'Failed to fetch account' });
+	}
 });
 
 // Get checkout info
 app.get('/checkout/:id', async (req, res) => {
-try {
-	const { id } = req.params;
-	const checkout = await sideshift.getCheckout(id);
-	res.json(checkout);
-} catch (error) {
-	res.status(500).json({ error: 'Failed to fetch checkout' });
-}
+	try {
+		const { id } = req.params;
+		const checkout = await sideshift.getCheckout(id);
+		res.json(checkout);
+	} catch (error) {
+		res.status(500).json({ error: 'Failed to fetch checkout' });
+	}
 });
 
 
@@ -133,7 +191,7 @@ try {
 
 // POST routes
 
-//  multiple pairs
+// Get multiple pairs
 app.post('/pairs', async (req, res) => {
 	try {
 		const { coins } = req.body; // e.g., ['btc-mainnet', 'eth-mainnet']
@@ -174,6 +232,7 @@ app.post('/quotes', async (req, res) => {
 			settleNetwork,
 			depositAmount,
 			settleAmount,
+			userIP: extractIPInfo(req.ip).address
 		});
 
 		res.json(quote);
@@ -199,6 +258,7 @@ app.post('/shifts/fixed', async (req, res) => {
 			settleMemo,
 			refundAddress,
 			refundMemo,
+			userIP: extractIPInfo(req.ip).address
 		});
 
 		res.json(shift);
@@ -230,6 +290,7 @@ app.post('/shifts/variable', async (req, res) => {
 			refundAddress,
 			settleMemo,
 			refundMemo,
+			userIP: extractIPInfo(req.ip).address
 		});
 
 		res.json(shift);
@@ -287,6 +348,7 @@ app.post('/checkout', async (req, res) => {
 			successUrl,
 			cancelUrl,
 			settleMemo,
+			userIP: extractIPInfo(req.ip).address
 		});
 		
 		res.json(checkout);
