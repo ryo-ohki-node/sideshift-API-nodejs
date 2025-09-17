@@ -1,7 +1,12 @@
 // Demo server for SideshiftAPI.js module.
-require('dotenv').config({ quiet: true }); 
+
+require('dotenv').config({ quiet: true }); //  debug: true 
 
 const fs = require('fs');
+if (!fs.existsSync(__dirname + '/.env')) {
+	console.log('.env file not found - Cannot start.');
+	process.exit(1);
+}
 
 // Create Express app + http server
 const express = require('express');
@@ -14,12 +19,12 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Load sideshift module
-const SideshiftAPI = require('./sideshiftAPI.js');
+const SideshiftAPI = require('./sideshift_module.js');
 
-const SIDESHIFT_ID = process.env.SIDESHIFT_ID ; //"Your_shideshift_ID"; 
+const SIDESHIFT_ID = process.env.SIDESHIFT_ID; //"Your_shideshift_ID"; 
 const SIDESHIFT_SECRET = process.env.SIDESHIFT_SECRET; // "Your_shideshift_secret";
 
-const sideshift = new SideshiftAPI({secret: SIDESHIFT_SECRET, id: SIDESHIFT_ID, commisssionRate: "1", verbose: true});
+const sideshift = new SideshiftAPI({ secret: SIDESHIFT_SECRET, id: SIDESHIFT_ID, commisssionRate: "1", verbose: true });
 
 
 // IP address validation
@@ -27,54 +32,66 @@ const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
 const ipv6Regex = /^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$/;
 
 function isValidIPv4(ip) {
-    if (!ipv4Regex.test(ip)) return false;
-    
-    const octets = ip.split('.');
-    for (const octet of octets) {
-        const num = parseInt(octet, 10);
-        if (num < 0 || num > 255) {
-            return false;
-        }
-    }
-    return true;
+	if (!ipv4Regex.test(ip)) return false;
+
+	const octets = ip.split('.');
+	for (const octet of octets) {
+		const num = parseInt(octet, 10);
+		if (num < 0 || num > 255) {
+			return false;
+		}
+	}
+	return true;
 }
 
 function extractIPInfo(ipAddress) {
 	const result = {
-        full: ipAddress,
+		full: ipAddress,
 		type: null,
-        address: null,
-    };
-    if (ipAddress.startsWith('::ffff:')) {
-        const ipv4Part = ipAddress.substring(7);
-		console.log(ipv4Part)
-        if (!isValidIPv4(ipv4Part)) {
-            throw new Error("invalid IP address");
-        }
-        ipAddress = ipv4Part;
-    }
+		address: null,
+	};
 
-	if(ipAddress === "127.0.0.1" || ipAddress === "::1") {
+	if (ipAddress.startsWith('::ffff:')) {
+		const ipv4Part = ipAddress.substring(7);
+		if (!this._isValidIPv4(ipv4Part)) {
+			result.type = "Local unknow";
+			result.address = "1.1.1.1";
+			if (this.verbose) console.log('Error extractIPInfo:', new Date(), result);
+			return result;
+			// throw new Error("invalid IP address");
+		}
+		ipAddress = ipv4Part;
+	}
+
+	if (ipAddress === "127.0.0.1" || ipAddress === "::1") {
 		result.type = "local";
 		result.address = "123.123.123.123"; // Set a virtual IP for local testing
 		return result;
+
 	} else if (ipAddress.includes('.')) {
-        if(!ipv4Regex.test(ipAddress)) throw new Error("invalid IP address");
-        const octets = ipAddress.split('.');
-        if (!isValidIPv4(ipAddress)) {
-            throw new Error("invalid IP address");
-        }
+		if (!this._isValidIPv4(ipAddress)) {
+			result.type = "Unknow";
+			if (this.verbose) console.log('Error extractIPInfo:', new Date(), result);
+			return result;
+			// throw new Error("invalid IP address");
+		}
+
 		result.type = "IPv4";
-        result.address = ipAddress;
-    } else if (ipAddress.includes(':')) {
-        if(!ipv6Regex.test(ipAddress)) throw new Error("invalid IP address");
-        result.type = "IPv6";
-        result.address = ipAddress;
-    } else {
-        throw new Error("invalid IP address");
-    }
-    
-    return result;
+		result.address = ipAddress;
+
+	} else if (ipAddress.includes(':')) {
+		if (!this.ipv6Regex.test(ipAddress)) throw new Error("invalid IP address");
+		result.type = "IPv6";
+		result.address = ipAddress;
+
+	} else {
+		result.type = "Unknow";
+		if (this.verbose) console.log('Error extractIPInfo:', new Date(), result);
+		return result;
+		// throw new Error("invalid IP address");
+	}
+
+	return result;
 }
 
 
@@ -350,7 +367,7 @@ app.post('/checkout', async (req, res) => {
 			settleMemo,
 			userIP: extractIPInfo(req.ip).address
 		});
-		
+
 		res.json(checkout);
 	} catch (error) {
 		res.status(400).json({ error: 'Failed to create checkout', details: error.message });
