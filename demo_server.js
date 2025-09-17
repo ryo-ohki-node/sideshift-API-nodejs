@@ -19,7 +19,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Load sideshift module
-const SideshiftAPI = require('./sideshift_module.js');
+const SideshiftAPI = require('./sideshiftAPI.js');
 
 const SIDESHIFT_ID = process.env.SIDESHIFT_ID; //"Your_shideshift_ID"; 
 const SIDESHIFT_SECRET = process.env.SIDESHIFT_SECRET; // "Your_shideshift_secret";
