@@ -1,5 +1,5 @@
 # sideshift-API-nodejs
-Sideshift API module for Node.js
+Sideshift API module for nodejs
 
 ## Use Cases
 This module provide an user-friendly interface to the official SideShift API. It can help integrate cryptocurrency swap into various applications, such as:
@@ -31,11 +31,13 @@ npm install --save node-fetch // if Node.js version < 18
 
 ##  Load module
 ```
-const SideshiftAPI = require('./sideshift_module.js');
-or import { SideshiftAPI } from './sideshift_module.js';
+const SideshiftAPI = require('./sideshiftAPI.js');
+or import { SideshiftAPI } from './sideshiftAPI.js';
 
 const SIDESHIFT_ID = "Your_shideshift_ID";
+
 const SIDESHIFT_SECRET = "Your_shideshift_secret";
+
 const COMMISSION_RATE = "0.5"; // Min 0 and max 2, set your commission rate from 0 to 2%. Default is 0.5
 
 const sideshift = new SideshiftAPI({
@@ -78,9 +80,11 @@ When encountering errors, the module returns an error object with the following 
   "status": 400,
   "statusText": "Bad Request",
   "url": "https://sideshift.ai/api/v2/cancel-order",
+  "options": {"Fetch options"}
   "error": {
     "message": "Order already expired"
-  }
+  },
+  "stack": "error stack" // if available
 }
 ```
 
