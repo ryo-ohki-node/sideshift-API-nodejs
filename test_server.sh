@@ -4,43 +4,47 @@ SERVER_URL=${1:-"http://localhost:3000"}
 
 # Function to test GET route
 test_get() {
-    local route=$1
-    local description=$2
-    echo -e "\n\n🔍 Testing: $description"
-    curl -s -X GET "${SERVER_URL}${route}" | jq .
-    sleep 5
-
+  local route=$1
+  local description=$2
+  local query_params=$3  # Added parameter for query parameters
+  echo -e "\n\n🔍 Testing: $description"
+  if [ -n "$query_params" ]; then
+      curl -s -X GET "${SERVER_URL}${route}?${query_params}" | jq .
+  else
+      curl -s -X GET "${SERVER_URL}${route}" | jq .
+  fi
+  sleep 5
 }
 
 # Function to test Icon and display it
 test_get_image() {
-    local route=$1
-    local description=$2
-    echo -e "\n\n🔍 Testing: $description"
-    curl -s -X GET "${SERVER_URL}${route}" | display -resize 200x200 -
-    sleep 5
-
+  local route=$1
+  local description=$2
+  echo -e "\n\n🔍 Testing: $description"
+  curl -s -X GET "${SERVER_URL}${route}" | display -resize 200x200 -
+  sleep 5
 }
 
 # Function to test POST route
 test_post() {
-	local route=$1
-	local description=$2
-	local data=$3
-	echo -e "\n\n🔍 Testing: $description"
-	curl -s -X POST "${SERVER_URL}${route}" \
-		-H "Content-Type: application/json" \
-		-d "$data" | jq .
-	sleep 5
-
+  local route=$1
+  local description=$2
+  local data=$3
+  echo -e "\n\n🔍 Testing: $description"
+  curl -s -X POST "${SERVER_URL}${route}" \
+    -H "Content-Type: application/json" \
+    -d "$data" | jq .
+  sleep 5
 }
 
 
-# Test GET/POST routes
+
+# Test GET routes
 test_get "/coins" "GET /coins"
 test_get_image "/coin-icon/BTC-mainnet" "GET /coin-icon/:coin"
 test_get "/permissions" "GET /permissions"
 test_get "/pair/BTC-mainnet/ETH-mainnet" "GET /pair/:from/:to"
+test_get "/pair/BTC-mainnet/ETH-mainnet" "GET /pair/:from/:to + amount 0.05" "amount=0.005"
 test_post "/pairs" "POST /pairs" '{"coins": ["BTC-mainnet", "ETH-mainnet", "BNB-bsc"]}'
 test_get "/shifts/b159b97dd01df2ff39fd" "GET /shifts/:id"
 test_post "/shifts/bulk" "POST /shifts/bulk" '{"ids": ["b159b97dd01df2ff39fd", "8b9bef65f98856222d5d"]}'
@@ -134,7 +138,7 @@ test_get "/checkout/${CHECHOUT_ID_FORMAT}" "GET /checkout"
 echo -e "\n\nTesting  /cancel-order - without waiting"
 
 # POST /cancel-order - Cancel order
-echo -e "\n\n🔍 Testing: /cancel-order"
+echo -e "\n\n🔍 Testing: /cancel-order" \
   -H "Content-Type: application/json" \
   -d '{
     "orderId": '"$FIXED_ID"'
@@ -143,7 +147,7 @@ echo -e "\n\n🔍 Testing: /cancel-order"
 echo -e "\n\nWaiting 5 min to cancel shifts"
 sleep 300
 
- echo -e "\n\n🔍 Testing: /cancel-order"
+echo -e "\n\n🔍 Testing: /cancel-order"
 curl -s -X POST "${SERVER_URL}/cancel-order" \
   -H "Content-Type: application/json" \
   -d '{
