@@ -29,15 +29,29 @@ Returns the list of coins and their respective networks available on SideShift.a
 ```
   
   
-### getCoinIcon()
-Returns the icon of the coin in svg or png format.
+### getCoinIcon(coin)
+Parameters
+- coin (string) - Must be in 'COIN-network' format (e.g., 'BTC-ethereum', 'ETH-bitcoin')
 
-return an image Blob.
+Returns
+- Blob - Image data containing the coin icon in SVG or PNG format
+
+**How to Call it**
+```
+const coinIcon = await getCoinIcon('BTC-bitcoin');
+```
+
 
 
 ### getPermissions()
 Returns whether or not the user is allowed to create shifts on SideShift.ai. 
 
+**How to Call it**
+```
+const permission = await getPermissions();
+```
+
+**Example Response:**
 ```
 {
   "createShift": true
@@ -45,8 +59,19 @@ Returns whether or not the user is allowed to create shifts on SideShift.ai.
 ```
 
 ### getPair()
+Parameters
+- from (string) - Source currency code (e.g., 'ETH-ethereum')
+- to (string) - Target currency code (e.g., 'USDT-ethereum')
+- amount (number, optional) - Amount to convert (if specified, will adjust the rate more precisely)
+
 Returns the minimum and maximum deposit amount and the rate for a pair of coins.
 
+**How to Call it**
+```
+const getPair = await getPair();
+```
+
+**Example Response:**
 ```
 json
 {
@@ -63,6 +88,10 @@ json
 ### getPairs(arrayOfCoins)
 Same as getPair but with multiple coins. Returns the minimum and maximum deposit amount and the rate for every possible pair of coins listed in the query string.
 
+Parameters
+- An array of coin (e.g., ['BTC-bitcoin', 'ETH-ethereum', 'BNB-bsc', ...])
+
+**Example Response:**
 ```
 [
   {
@@ -110,6 +139,7 @@ See https://docs.sideshift.ai/endpoints/v2/bulkshifts for output example
 ### getRecentShifts(limit)
 Returns the 10 most recent completed shifts. Use limit param to change the number of recent shifts returned. limit must be between 1-100.
 
+**Example Response:**
 ```
 [
   {
@@ -127,6 +157,7 @@ Returns the 10 most recent completed shifts. Use limit param to change the numbe
 ### getXaiStats()
 Returns the statistics about XAI coin, including it's current USD price.
 
+**Example Response:**
 ```
 {
   "totalSupply": 210000000,
@@ -147,6 +178,7 @@ Returns the statistics about XAI coin, including it's current USD price.
 ### getAccount()
 Returns the data related to an account. In order to get the data, send the account secret in the x-sideshift-secret header.
 
+**Example Response:**
 ```
 {
   "id": "YQMi62XMb",
@@ -161,6 +193,7 @@ Returns the data related to an account. In order to get the data, send the accou
 ### getCheckout()
 Returns the data of a checkout created using /v2/checkout endpoint.
 
+**Example Response:**
 ```
 {
   "id": "32e676d3-56c2-4c06-a0cd-551a9d3db18b",
@@ -180,7 +213,7 @@ Returns the data of a checkout created using /v2/checkout endpoint.
 
 ## POST function
 
-### requestQuote({depositCoin, depositNetwork, settleCoin, settleNetwork, depositAmount, settleAmount, userIP})
+### requestQuote({depositCoin, depositNetwork, settleCoin, settleNetwork, depositAmount, settleAmount, userIp})
 For fixed rate shifts, a quote should be requested first. A quote can be requested for either a depositAmount or a settleAmount.
 
 **How to Call it**
@@ -192,7 +225,7 @@ const quote = await client.requestQuote({
     settleNetwork: 'ethereum',
     depositAmount: null,
     settleAmount: 2.3,
-    userIP: 'ip_address' // Optional
+    userIp: 'ip_address' // Optional
 });
 ```
 
@@ -213,7 +246,7 @@ const quote = await client.requestQuote({
 }
 ```
 
-### createFixedShift({settleAddress, quoteId, settleMemo, refundAddress, refundMemo, userIP})
+### createFixedShift({settleAddress, quoteId, settleMemo, refundAddress, refundMemo, userIp})
 After requesting a quote, use the quoteId to create a fixed rate shift with the quote. The affiliateId must match the one used to request the quote.
 
 **How to Call it**
@@ -224,7 +257,7 @@ const fixed_shift = await client.createFixedShift({
     settleMemo: 'memo', // Optional
     refundAddress: '0x...', // Optional
     refundMemo: 'WalletMemo', // Optional
-    userIP: 'ip_address' // Optional
+    userIp: 'ip_address' // Optional
 });
 ```
 
@@ -254,7 +287,7 @@ const fixed_shift = await client.createFixedShift({
 }
 ```
 
-### createVariableShift({settleAddress, settleCoin, settleNetwork, depositCoin, depositNetwork, refundAddress, settleMemo, refundMemo, userIP})
+### createVariableShift({settleAddress, settleCoin, settleNetwork, depositCoin, depositNetwork, refundAddress, settleMemo, refundMemo, userIp})
 For variable rate shifts, the settlement rate is determined when the user's deposit is received.
 
 **How to Call it**
@@ -267,7 +300,7 @@ const variable_shift = await client.createVariableShift({
     depositNetwork: 'bitcoin',
     refundAddress: '0x...', // Optional
     settleMemo: 'memo', // Optional
-    userIP: 'ip_address' // Optional
+    userIp: 'ip_address' // Optional
 });
 ```
 
@@ -345,7 +378,7 @@ const cancel_shift = await cancelOrder('71449070046fcfee010z')
 };
 ```
 
-### createCheckout({settleCoin, settleNetwork, settleAmount, settleAddress, successUrl, cancelUrl, settleMemo, userIP})
+### createCheckout({settleCoin, settleNetwork, settleAmount, settleAddress, successUrl, cancelUrl, settleMemo, userIp})
 **How to Call it**
 ```
 const cancel_shift = await client.createCheckout({
@@ -356,7 +389,7 @@ const cancel_shift = await client.createCheckout({
     successUrl: 'https://example.com/success',
     cancelUrl: 'https://example.com/cancel',
     settleMemo: 'memo', // optional
-    userIP: 'ip_address' // optional
+    userIp: 'ip_address' // optional
 });
 ```
 
