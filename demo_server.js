@@ -142,7 +142,8 @@ app.get('/permissions', async (req, res) => {
 app.get('/pair/:from/:to', async (req, res) => {
 	try {
 		const { from, to } = req.params;
-		const pair = await sideshift.getPair(from, to);
+		const amount = req.query.amount || null;
+		const pair = await sideshift.getPair(from, to, amount);
 		res.json(pair);
 	} catch (error) {
 		res.status(500).json({ error: 'Failed to fetch pair info' });
@@ -249,7 +250,7 @@ app.post('/quotes', async (req, res) => {
 			settleNetwork,
 			depositAmount,
 			settleAmount,
-			userIP: extractIPInfo(req.ip).address
+			userIp: extractIPInfo(req.ip).address
 		});
 
 		res.json(quote);
@@ -275,7 +276,7 @@ app.post('/shifts/fixed', async (req, res) => {
 			settleMemo,
 			refundAddress,
 			refundMemo,
-			userIP: extractIPInfo(req.ip).address
+			userIp: extractIPInfo(req.ip).address
 		});
 
 		res.json(shift);
@@ -307,7 +308,7 @@ app.post('/shifts/variable', async (req, res) => {
 			refundAddress,
 			settleMemo,
 			refundMemo,
-			userIP: extractIPInfo(req.ip).address
+			userIp: extractIPInfo(req.ip).address
 		});
 
 		res.json(shift);
@@ -365,7 +366,7 @@ app.post('/checkout', async (req, res) => {
 			successUrl,
 			cancelUrl,
 			settleMemo,
-			userIP: extractIPInfo(req.ip).address
+			userIp: extractIPInfo(req.ip).address
 		});
 
 		res.json(checkout);
