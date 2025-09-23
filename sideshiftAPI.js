@@ -24,10 +24,10 @@ class SideshiftAPI {
         this.COMMISSION_RATE = String(commisssionRate);
 
         /** Max retries configurations */
-        this.maxRetries = retries.maxRetries || 3;
-        this.retryDelay = retries.retryDelay || 2000; // 2 second
-        this.retryBackoff = retries.retryBackoff || 1; // exponential backoff multiplier
-
+        this.maxRetries = retries.maxRetries || 5;
+        this.retryDelay = retries.retryDelay || 2000; // 2 seconds
+        this.retryBackoff = retries.retryBackoff || 2; // exponential backoff multiplier
+        this.retryCappedDelay = retries.retryCappedDelay || 10000; // 10 secondes
 
         /**  Verbose mode true/false */
         this.verbose = !!verbose;
@@ -86,25 +86,41 @@ class SideshiftAPI {
         return JSON.stringify(filtered, null, 2);
     }
 
-    // _shouldRetry(error) {
-    //     if (error.name === 'TypeError' || error.message.includes('fetch') || error.message.includes('timeout')) {
-    //         return true;
-    //     }
+    /** Retries helpers */
+    _shouldRetry(error) {
+        if (!error) return false;
+        
+        const message = error.message || '';
+        
+        if (error.name === 'TypeError' || error.name === 'AbortError' || message.includes('fetch') || message.includes('timeout')) {
+            return true;
+        }
 
-    //     if (error.status && error.status >= 500) {
-    //         return true;
-    //     }
+        if (error.status && error.status >= 500) {
+            return true;
+        }
 
-    //     if (error.status && error.status >= 400 && error.status < 500) {
-    //         return error.status === 429;
-    //     }
+        if (error.status && error.status >= 400 && error.status < 500) {
+            return error.status === 429;
+        }
 
-    //     return false;
-    // }
+        return false;
+    }
 
-    // _delay(ms) {
-    //     return new Promise(resolve => setTimeout(resolve, ms));
-    // }
+    _calculateBackoffDelay(retries) {
+        if (retries >= this.maxRetries) {
+            return this.retryCappedDelay;
+        }
+
+        const baseDelay = Math.pow(this.retryBackoff, retries) * this.retryDelay;
+        const cappedBaseDelay = Math.min(baseDelay, this.retryCappedDelay);
+        const jitter = Math.floor(Math.random() * this.retryDelay * 0.2);
+        return cappedBaseDelay + jitter;
+    }
+
+    _delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
 
 
     /**
@@ -139,7 +155,7 @@ class SideshiftAPI {
      * @returns {Promise<Object>} Resolves with the response object if successful
      * @throws {Error} Throws an error with HTTP status details and error data when response is not ok
      */
-    async _handleResponse(response, url, options, retries) {
+    async _handleResponse(response, url, options) {
         if (this.verbose) {
             console.log('\n=== DEBUG REQUEST ===');
             console.log('URL:', url);
@@ -168,13 +184,6 @@ class SideshiftAPI {
                 errorData.error || errorData
             );
 
-            // if (retries < this.maxRetries && this._shouldRetry(error)) {
-            //     if (this.verbose) console.warn(`Request failed, retrying in ${this.retryDelay * Math.pow(this.retryBackoff, retries)}ms...`, error.message);
-
-            //     await this._delay(this.retryDelay * Math.pow(this.retryBackoff, retries));
-            //     return this._request(url, options, retries + 1);
-            // }   
-
             throw error;
         }
 
@@ -192,6 +201,7 @@ class SideshiftAPI {
     async _request(url, options = {}, retries = 0) {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
         try {
             const response = await fetch(url, {
                 ...options,
@@ -200,7 +210,6 @@ class SideshiftAPI {
             clearTimeout(timeoutId);
             const handledResponse = await this._handleResponse(response, url, options, retries);
 
-            // Because of cancel-order - Check if the response is 204 before parsing JSON
             if (url === `${this.BASE_URL}/cancel-order` && handledResponse.status === 204) {
                 let orderId = null;
                 if (options?.body && typeof options?.body === 'string') {
@@ -211,31 +220,32 @@ class SideshiftAPI {
                         if (this.verbose) console.error('Failed to parse request body:', e);
                     }
                 }
-                return { success: true, orderId: orderId };
+                return { success: true, orderId };
             }
 
-            try {
-                return await handledResponse.json();
-            } catch (e) {
-                const text = await handledResponse.text();
-                const error = this._createError(`HTTP error - Non-JSON response received: ${text}`,
-                    response,
-                    url,
-                    options,
-                    e
-                );
-
-                throw error;
-            }
-
+            return await handledResponse.json();
         } catch (err) {
             clearTimeout(timeoutId);
+
+            // Retry on specific types of errors
+            const shouldRetry = retries < this.maxRetries && this._shouldRetry(err);
+
+            if (shouldRetry) {
+                const delay = this._calculateBackoffDelay(retries);
+
+                if (this.verbose) console.warn(`Request failed, retrying in ${delay}ms...`, err.message);
+
+                await this._delay(delay);
+                return this._request(url, options, retries + 1);
+            }
+
             const error = this._createError(`Fetch API error: ${err.error?.message || err.message || err}`,
                 null,
                 url,
                 options,
                 err
             );
+
             throw error;
         }
     }
@@ -247,7 +257,7 @@ class SideshiftAPI {
      * @param {Object} options - Fetch options
      * @returns {Promise<Blob|Object>} Image blob or error object
      */
-    async _requestImage(url, options = {}) {
+    async _requestImage(url, options = {}, retries = 0) {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
         try {
@@ -271,6 +281,19 @@ class SideshiftAPI {
             }
         } catch (err) {
             clearTimeout(timeoutId);
+            
+            // Retry on specific types of errors
+            const shouldRetry = retries < this.maxRetries && this._shouldRetry(err);
+
+            if (shouldRetry) {
+                const delay = this._calculateBackoffDelay(retries);
+
+                if (this.verbose) console.warn(`Image request failed, retrying in ${delay}ms...`, err.message);
+
+                await this._delay(delay);
+                return this._request(url, options, retries + 1);
+            }
+
             const error = this._createError(`Fetch API image error: ${err.error?.message || err.message || err}`,
                 null,
                 url,
@@ -319,19 +342,19 @@ class SideshiftAPI {
             const error = this._errorMsg(fieldName, source);
             throw new Error(`${error} - must be an array`);
         }
-        
+
         if (value.length === 0) {
             const error = this._errorMsg(fieldName, source);
             throw new Error(`${error} - must be a non-empty array`);
         }
-        
+
         this._validateArrayElements(value, fieldName, source, elementType);
 
         return value;
     }
     _validateArrayElements(value, fieldName, source, elementType = 'string') {
         for (let i = 0; i < value.length; i++) {
-            if (!value[i] || typeof value[i] !== elementType || 
+            if (!value[i] || typeof value[i] !== elementType ||
                 (elementType === 'string' && !value[i].trim())) {
                 const error = this._errorMsg(`${fieldName}[${i}]`, source);
                 throw new Error(`${error} - each element must be a non-empty ${elementType}`);
@@ -393,7 +416,7 @@ class SideshiftAPI {
     async getPair(from, to, amount = null) {
         this._validateString(from, "from", "getPair");
         this._validateString(to, "to", "getPair");
-        if(amount) this._validateNumber(Number(amount), "amount", "getPair");
+        if (amount) this._validateNumber(Number(amount), "amount", "getPair");
 
         const queryParams = new URLSearchParams({
             affiliateId: this.SIDESHIFT_ID,
@@ -530,7 +553,6 @@ class SideshiftAPI {
         });
     }
 
-
     /**
      * Create a fixed shift
      * @param {Object} options - Configuration options
@@ -572,7 +594,6 @@ class SideshiftAPI {
             method: "POST"
         });
     }
-
 
     /**
      * Create a variable shift
@@ -656,7 +677,6 @@ class SideshiftAPI {
             method: "POST"
         });
     }
-
 
     /**
      * Cancel an order
