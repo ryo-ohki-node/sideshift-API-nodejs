@@ -40,11 +40,19 @@ const SIDESHIFT_SECRET = "Your_shideshift_secret";
 
 const COMMISSION_RATE = "0.5"; // Min 0 and max 2, set your commission rate from 0 to 2%. Default is 0.5
 
+const RETRIES =  {
+  maxRetries: 5,
+  retryDelay: 2000,
+  retryBackoff: 2,
+  retryCappedDelay: 10000
+};
+
 const sideshift = new SideshiftAPI({
   secret: SIDESHIFT_SECRET,
   id: SIDESHIFT_ID,
   commisssionRate: COMMISSION_RATE, // Optional
-  verbose: true // Optional
+  verbose: true, // Optional
+  retries: RETRIES // Optional retries settings
 });
 ```
 
